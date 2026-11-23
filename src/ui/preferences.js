@@ -103,17 +103,27 @@ import {
     getMarkdownReaderFont,
     getMarkdownReaderFontSize,
     getMarkdownReaderLineHeight,
+    getMarkdownReaderLocalFont,
     getMarkdownReaderSourcePeek,
+    getMarkdownReaderTheme,
     getMarkdownReaderWidth,
     MARKDOWN_READER_FONT_SIZE_MAX,
     MARKDOWN_READER_FONT_SIZE_MIN,
+    MARKDOWN_READER_LOCAL_FONT_PREFS,
+    MARKDOWN_READER_THEME_OPTIONS,
+    observeMarkdownReaderLocalFont,
+    observeMarkdownReaderTheme,
     setMarkdownReaderAlignment,
     setMarkdownReaderFont,
     setMarkdownReaderFontSize,
     setMarkdownReaderLineHeight,
+    setMarkdownReaderLocalFont,
     setMarkdownReaderSourcePeek,
+    setMarkdownReaderTheme,
     setMarkdownReaderWidth,
 } from '../config/reader-preferences.js';
+import { listZoteroFontFamilies } from '../platform/zotero-window.js';
+import { populateReaderFontSelect, selectReaderFont } from './reader-font-select.js';
 import {
     getObsidianVaultPath,
     setObsidianVaultPath,
@@ -186,6 +196,7 @@ export function createPreferencesController({
     notifyAITestResult = null,
     confirmClearCache = null,
     createFilePicker = null,
+    readerFontFamilies = [],
     createAbortController = createRuntimeAbortController,
     // Injected so tests never reach the network; the pane only reads here.
     accountFetch = globalThis.fetch,
@@ -194,6 +205,8 @@ export function createPreferencesController({
     const clearButton = document.getElementById('mktero-clear-cache');
     const cleanupStatus = document.getElementById('mktero-cache-cleanup-status');
     const cleanupRetryButton = document.getElementById('mktero-cache-cleanup-retry');
+    const readerThemeInput = document.getElementById('mktero-reader-theme');
+    let disposeReaderThemeObserver;
     const readerFontSizeInput = document.getElementById(
         'mktero-reader-font-size'
     );
@@ -203,6 +216,19 @@ export function createPreferencesController({
     const readerFontInput = document.getElementById(
         'mktero-reader-font-family'
     );
+    const readerLocalFonts = [
+        ['mktero-reader-local-source-font', MARKDOWN_READER_LOCAL_FONT_PREFS.source],
+        ['mktero-reader-local-translation-font', MARKDOWN_READER_LOCAL_FONT_PREFS.translation],
+        ['mktero-reader-local-code-font', MARKDOWN_READER_LOCAL_FONT_PREFS.code],
+    ].map(([id, pref]) => {
+        const input = document.getElementById(id);
+        const update = () => {
+            selectMarkdownReaderFont(setMarkdownReaderLocalFont(zotero, pref, input.value));
+        };
+        const selectMarkdownReaderFont = name => selectReaderFont(input, name);
+        return { input, pref, update, selectMarkdownReaderFont };
+    });
+    const readerFontObservers = [];
     const readerLineHeightInput = document.getElementById(
         'mktero-reader-line-height'
     );
@@ -482,6 +508,26 @@ export function createPreferencesController({
         if (!readerWidthInput) return;
         readerWidthInput.value = getMarkdownReaderWidth(zotero);
         readerWidthInput.addEventListener('change', updateReaderWidth);
+    }
+
+    function updateReaderTheme() {
+        readerThemeInput.value = setMarkdownReaderTheme(zotero, readerThemeInput.value);
+    }
+
+    function initializeReaderTheme() {
+        if (!readerThemeInput) return;
+        readerThemeInput.replaceChildren(...MARKDOWN_READER_THEME_OPTIONS
+            .map(({ value, labelKey }) => {
+                const option = createHTMLElement(document, 'option');
+                option.value = value;
+                option.textContent = t(labelKey);
+                return option;
+            }));
+        readerThemeInput.value = getMarkdownReaderTheme(zotero);
+        readerThemeInput.addEventListener('change', updateReaderTheme);
+        disposeReaderThemeObserver = observeMarkdownReaderTheme(zotero, value => {
+            readerThemeInput.value = value;
+        });
     }
 
     function updateReaderAlignment() {
@@ -1787,10 +1833,20 @@ export function createPreferencesController({
         initializeAIRequestTimeout();
         initializeAIAdvancedSettings();
         initializeReaderFont();
+        for (const { input, pref, update, selectMarkdownReaderFont } of readerLocalFonts) {
+            if (!input) continue;
+            populateReaderFontSelect(input, readerFontFamilies, t('viewer.fontReaderPreset'));
+            selectMarkdownReaderFont(getMarkdownReaderLocalFont(zotero, pref));
+            readerFontObservers.push(observeMarkdownReaderLocalFont(
+                zotero, pref, selectMarkdownReaderFont
+            ));
+            input.addEventListener('change', update);
+        }
         initializeReaderFontSize();
         initializeReaderLineHeight();
         initializeReaderWidth();
         initializeReaderAlignment();
+        initializeReaderTheme();
         initializeReaderSourcePeek();
         updateServiceSources();
         initializeObsidianExport();
@@ -2005,6 +2061,10 @@ export function createPreferencesController({
                 updateReaderFontSize
             );
             readerFontInput?.removeEventListener('change', updateReaderFont);
+            for (const { input, update } of readerLocalFonts) {
+                input?.removeEventListener('change', update);
+            }
+            for (const dispose of readerFontObservers.splice(0)) dispose();
             readerLineHeightInput?.removeEventListener(
                 'change',
                 updateReaderLineHeight
@@ -2014,6 +2074,9 @@ export function createPreferencesController({
                 'change',
                 updateReaderAlignment
             );
+            readerThemeInput?.removeEventListener('change', updateReaderTheme);
+            disposeReaderThemeObserver?.();
+            disposeReaderThemeObserver = null;
             readerSourcePeekInput?.removeEventListener(
                 'change',
                 updateReaderSourcePeek
@@ -2273,6 +2336,9 @@ globalThis.MkteroPreferences = {
             document,
             zotero: Zotero,
             cache,
+            readerFontFamilies: listZoteroFontFamilies(
+                typeof Components === 'undefined' ? null : Components
+            ),
             testAIConnection: async (settings, signal) => {
                 const tester = await loadPreferencesAITester();
                 return tester.testConnection(settings, signal, document?.defaultView);

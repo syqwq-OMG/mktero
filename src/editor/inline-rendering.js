@@ -464,6 +464,7 @@ class RenderedMarkdownWidget extends WidgetType {
             enhanceRenderedCodeBlock(container, document, {
                 copyCode: this.copyCode,
                 translate: this.translate,
+                colorScheme: view.root?.host?.getAttribute('data-reader-color-scheme'),
             });
         }
         if (this.display === 'math-display') {
@@ -696,7 +697,7 @@ export function enhanceRenderedCodeBlocks(
 function enhanceRenderedCodeBlock(
     container,
     document,
-    { copyCode, translate = translateEnglish } = {}
+    { copyCode, translate = translateEnglish, colorScheme } = {}
 ) {
     const pre = container.querySelector('pre');
     const codeElement = pre?.querySelector('code');
@@ -757,15 +758,29 @@ function enhanceRenderedCodeBlock(
     pre.replaceWith(content);
     content.append(pre);
     pre.dataset.language = language;
-    pre.dataset.theme = resolveCodeTheme(document);
     container.insertBefore(toolbar, content);
+    applyRenderedCodeTheme(pre, codeElement, document, colorScheme);
+}
 
+export function refreshRenderedCodeTheme(root, document, colorScheme) {
+    for (const pre of root.querySelectorAll('.cm-mktero-code-block pre[data-theme]')) {
+        const codeElement = pre.querySelector('code');
+        if (codeElement) applyRenderedCodeTheme(pre, codeElement, document, colorScheme);
+    }
+}
+
+function applyRenderedCodeTheme(pre, codeElement, document, colorScheme) {
+    const theme = colorScheme || resolveCodeTheme(document);
+    if (pre.dataset.theme === theme) return;
+    pre.dataset.theme = theme;
+    const code = codeElement.textContent || '';
     void highlightCodeBlock({
         code,
-        language,
-        theme: pre.dataset.theme,
+        language: pre.dataset.language,
+        theme,
     }).then(result => {
         if (!result
+            || pre.dataset.theme !== theme
             || codeElement.textContent !== code
             || hasActiveCodeSelection(document, codeElement)) {
             return;

@@ -9,6 +9,7 @@ import {
     getMarkdownReaderFontSize,
     getMarkdownReaderLineHeight,
     getMarkdownReaderLineHeightCss,
+    getMarkdownReaderLocalFont,
     getMarkdownReaderWidth,
     getMarkdownReaderWidthCss,
     MARKDOWN_READER_ALIGNMENT_DEFAULT,
@@ -21,6 +22,7 @@ import {
     MARKDOWN_READER_FONT_SIZE_PREF,
     MARKDOWN_READER_LINE_HEIGHT_DEFAULT,
     MARKDOWN_READER_LINE_HEIGHT_PREF,
+    MARKDOWN_READER_LOCAL_FONT_PREFS,
     MARKDOWN_READER_NOTES_VISIBLE_PREF,
     MARKDOWN_READER_NOTES_WIDTH_DEFAULT,
     MARKDOWN_READER_NOTES_WIDTH_MAX,
@@ -43,8 +45,10 @@ import {
     setMarkdownReaderFont,
     setMarkdownReaderFontSize,
     setMarkdownReaderLineHeight,
+    setMarkdownReaderLocalFont,
     setMarkdownReaderPanelLayout,
     setMarkdownReaderWidth,
+    withMarkdownReaderLocalFont,
 } from '../src/config/reader-preferences.js';
 
 test('normalizes and persists the Markdown reader font size', () => {
@@ -135,6 +139,34 @@ test('normalizes and persists the Markdown reader font family', () => {
     assert.equal(
         getMarkdownReaderFontFamily('invalid'),
         '"STIX Two Text", "Noto Serif SC", ui-serif, "Iowan Old Style", Charter, "Bitstream Charter", Georgia, serif'
+    );
+});
+
+test('stores original and translated local font names independently', () => {
+    const values = new Map();
+    const zotero = {
+        Prefs: {
+            get: key => values.get(key),
+            set: (key, value) => values.set(key, value),
+        },
+    };
+    const { source, translation } = MARKDOWN_READER_LOCAL_FONT_PREFS;
+    assert.equal(getMarkdownReaderLocalFont(zotero, source), '');
+    assert.equal(setMarkdownReaderLocalFont(zotero, source, ' Aptos '), 'Aptos');
+    assert.equal(setMarkdownReaderLocalFont(zotero, translation, '微软雅黑'), '微软雅黑');
+    assert.equal(getMarkdownReaderLocalFont(zotero, source), 'Aptos');
+    assert.equal(getMarkdownReaderLocalFont(zotero, translation), '微软雅黑');
+    assert.equal(setMarkdownReaderLocalFont(zotero, translation, ''), '');
+    assert.equal(getMarkdownReaderLocalFont(zotero, source), 'Aptos');
+});
+
+test('treats a local font name as one CSS family and retains the preset fallback', () => {
+    assert.equal(withMarkdownReaderLocalFont('  ', 'serif'), 'serif');
+    assert.equal(withMarkdownReaderLocalFont('a'.repeat(129), 'serif'), 'serif');
+    assert.equal(withMarkdownReaderLocalFont('line\nfeed', 'serif'), 'serif');
+    assert.equal(
+        withMarkdownReaderLocalFont('name"; color: red, sans-serif', 'serif'),
+        '"name\\"; color: red, sans-serif", serif'
     );
 });
 

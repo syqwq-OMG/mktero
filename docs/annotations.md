@@ -87,7 +87,7 @@ To collect the PDF's annotations, choose `Add Note from Annotations` in the `Ann
 ## Correct recognition errors
 
 1. In the document actions menu (`⋯` at the end of the toolbar), choose `Manage corrections`. A banner below the toolbar explains the controls.
-2. Double-click an existing paragraph, heading, or GFM table cell to edit it. Choose `Save changes`, or discard the edit with `Escape` or `Cancel`.
+2. Hold `Alt` (`Option` on macOS) and click an existing paragraph, heading, or GFM table cell to edit it. You can also place the cursor in the text or focus a cell and press `F2`. Double-click selects text. Choose `Save changes`, or discard the edit with `Escape` or `Cancel`.
 3. In correction mode, existing paragraphs and headings can also be deleted and restored.
 4. Choose `Finish correction` in the banner to leave correction mode.
 

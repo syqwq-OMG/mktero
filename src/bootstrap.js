@@ -239,6 +239,7 @@ import { createRuntimeAbortController } from './platform/abort-controller.js';
 import {
     createWindowFetch,
     createWindowTimers,
+    listZoteroFontFamilies,
     liveZoteroWindow,
 } from './platform/zotero-window.js';
 import {
@@ -535,6 +536,9 @@ globalThis.startup = async function startup({ id, rootURI }) {
         zotero: Zotero,
         rootURI,
         localization,
+        readerFontFamilies: listZoteroFontFamilies(
+            typeof Components === 'undefined' ? null : Components
+        ),
     });
     runtime.markdownExporter = createZoteroMarkdownExporter({
         createFilePicker: createZoteroFilePicker,

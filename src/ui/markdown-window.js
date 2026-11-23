@@ -4,6 +4,7 @@ import { searchMarkdownDocument } from '../markdown/markdown-document-search.js'
 import { navigationShortcutLabels } from './reader-shortcuts.js';
 import {
     enhanceRenderedCodeBlocks,
+    refreshRenderedCodeTheme,
     enhanceRenderedMathBlocks,
 } from '../editor/inline-rendering.js';
 import {
@@ -39,6 +40,7 @@ import {
     getMarkdownReaderAlignmentCss,
     getMarkdownReaderFontFamily,
     getMarkdownReaderLineHeightCss,
+    getMarkdownReaderThemeOption,
     getMarkdownReaderWidthCss,
     MARKDOWN_READER_ALIGNMENT_DEFAULT,
     MARKDOWN_READER_ALIGNMENT_OPTIONS,
@@ -56,6 +58,7 @@ import {
     MARKDOWN_READER_OUTLINE_WIDTH_MAX,
     MARKDOWN_READER_OUTLINE_WIDTH_MIN,
     MARKDOWN_READER_SOURCE_PEEK_DEFAULT,
+    MARKDOWN_READER_THEME_OPTIONS,
     MARKDOWN_READER_WIDTH_DEFAULT,
     MARKDOWN_READER_WIDTH_OPTIONS,
     normalizeMarkdownReaderAlignment,
@@ -65,7 +68,9 @@ import {
     normalizeMarkdownReaderPanelLayout,
     normalizeMarkdownReaderSourcePeek,
     normalizeMarkdownReaderWidth,
+    withMarkdownReaderLocalFont,
 } from '../config/reader-preferences.js';
+import { populateReaderFontSelect, selectReaderFont } from './reader-font-select.js';
 import {
     NOTE_ANNOTATION_NOT_IN_PDF,
     NOTE_EDITOR_UNAVAILABLE,
@@ -324,7 +329,12 @@ export function createMarkdownTabView({
     editorFactory = createInlineMarkdownEditor,
     localization = createLocalization(),
     readerFont = MARKDOWN_READER_FONT_DEFAULT,
+    readerLocalFonts = {},
+    readerFontFamilies = null,
+    onReaderLocalFontChange = null,
     readerFontSize = DEFAULT_READER_FONT_SIZE,
+    readerTheme = 'system',
+    onReaderThemeChange = null,
     onReaderFontChange = null,
     onReaderFontSizeChange = null,
     readerLineHeight = MARKDOWN_READER_LINE_HEIGHT_DEFAULT,
@@ -353,7 +363,12 @@ export function createMarkdownTabView({
         editorFactory,
         localization,
         readerFont,
+        readerLocalFonts,
+        readerFontFamilies,
+        onReaderLocalFontChange,
         readerFontSize,
+        readerTheme,
+        onReaderThemeChange,
         onReaderFontChange,
         onReaderFontSizeChange,
         readerLineHeight,
@@ -382,7 +397,12 @@ class MarkdownTabView {
         editorFactory,
         localization,
         readerFont,
+        readerLocalFonts,
+        readerFontFamilies,
+        onReaderLocalFontChange,
         readerFontSize,
+        readerTheme,
+        onReaderThemeChange,
         onReaderFontChange,
         onReaderFontSizeChange,
         readerLineHeight,
@@ -414,7 +434,12 @@ class MarkdownTabView {
         this.zotero = zotero;
         this.model = model;
         this.readerFont = normalizeMarkdownReaderFont(readerFont);
+        this.readerLocalFonts = { ...readerLocalFonts };
+        this.readerFontFamilies = readerFontFamilies;
+        this.onReaderLocalFontChange = onReaderLocalFontChange;
         this.readerFontSize = normalizeMarkdownReaderFontSize(readerFontSize);
+        this.readerTheme = getMarkdownReaderThemeOption(readerTheme).value;
+        this.onReaderThemeChange = onReaderThemeChange;
         this.onReaderFontChange = onReaderFontChange;
         this.onReaderFontSizeChange = onReaderFontSizeChange;
         this.readerLineHeight = normalizeMarkdownReaderLineHeight(
@@ -603,7 +628,8 @@ class MarkdownTabView {
             document: this.document,
             parent: this.elements.view,
         });
-        this.setReaderFont(this.readerFont);
+        this.setReaderLocalFonts(this.readerLocalFonts);
+        this.setReaderTheme(this.readerTheme);
         this.setReaderFontSize(this.readerFontSize);
         this.setReaderLineHeight(this.readerLineHeight);
         this.setReaderWidth(this.readerWidth);
@@ -2352,6 +2378,7 @@ class MarkdownTabView {
             readerFontTrigger: documentActions.readerFontTrigger,
             readerFontCurrent: documentActions.readerFontCurrent,
             readerFontOptions: documentActions.readerFontOptions,
+            readerLocalFontControls: documentActions.readerLocalFontControls,
             documentSearchToggle: documentActions.documentSearchToggle,
             sourcePeekToggle: documentActions.sourcePeekToggle,
             sourcePeekLabel: documentActions.sourcePeekLabel,
@@ -2365,6 +2392,8 @@ class MarkdownTabView {
             readerWidthGroup: documentActions.readerWidthGroup,
             readerAlignmentLabel: documentActions.readerAlignmentLabel,
             readerAlignmentGroup: documentActions.readerAlignmentGroup,
+            readerThemeLabel: documentActions.readerThemeLabel,
+            readerThemeGroup: documentActions.readerThemeGroup,
             translationProgress: documentActions.translationProgress,
             translationProgressBar: documentActions.translationProgressBar,
             documentSearchPanel: documentActions.documentSearchPanel,
@@ -2696,6 +2725,7 @@ class MarkdownTabView {
         const readerFontFamilyRow = this.createElement('div', {
             class: 'markdown-typography-row',
         });
+        readerFontFamilyRow.hidden = Boolean(this.readerFontFamilies?.length);
         appendChildren(
             readerFontFamilyRow,
             readerFontFamilyLabel,
@@ -2705,6 +2735,52 @@ class MarkdownTabView {
             class: 'markdown-typography-font-row',
         });
         appendChildren(readerFontRow, readerFontSizeRow, readerFontFamilyRow);
+        const readerLocalFontControls = this.readerFontFamilies === null ? [] : [
+            ['source', 'preferences.reader.localSourceFont'],
+            ['translation', 'preferences.reader.localTranslationFont'],
+            ['code', 'preferences.reader.localCodeFont'],
+        ].map(([kind, labelKey]) => {
+            const id = `mktero-reader-${kind}-font-select`;
+            const label = this.createElement('label', {
+                id: `${id}-label`,
+                class: 'markdown-typography-label',
+                for: id,
+            }, this.t(labelKey));
+            const menu = this.createElement('details', {
+                class: 'markdown-typography-font-menu',
+            });
+            const summary = this.createElement('summary', {
+                class: 'markdown-typography-font-summary',
+                'aria-labelledby': `${id}-label ${id}-current`,
+            });
+            const current = this.createElement('span', { id: `${id}-current` });
+            summary.appendChild(current);
+            // Keep the list in the reader tree so choosing an option cannot
+            // dismiss the typography panel as a press on a native popup.
+            const select = this.createElement('select', {
+                id,
+                class: 'markdown-typography-font-select',
+                size: '6',
+            });
+            populateReaderFontSelect(
+                select, this.readerFontFamilies, this.t('viewer.fontReaderPreset')
+            );
+            selectReaderFont(select, this.readerLocalFonts[kind] || '');
+            current.textContent = this.readerLocalFonts[kind]
+                || this.t('viewer.fontReaderPreset');
+            appendChildren(menu, summary, select);
+            const row = this.createElement('div', { class: 'markdown-typography-row' });
+            appendChildren(row, label, menu);
+            return { kind, labelKey, label, row, menu, summary, current, select };
+        });
+        const readerTheme = this.createTypographySegmentGroup({
+            id: 'mktero-reader-theme-group',
+            labelKey: 'viewer.readerTheme',
+            attribute: 'data-reader-theme-choice',
+            options: MARKDOWN_READER_THEME_OPTIONS,
+            selected: this.readerTheme,
+        });
+        readerTheme.group.classList.add('markdown-typography-themes');
         const readerLineHeight = this.createTypographySegmentGroup({
             id: 'mktero-reader-line-height',
             labelKey: 'viewer.lineHeight',
@@ -2771,10 +2847,13 @@ class MarkdownTabView {
             role: 'dialog',
             'aria-label': this.t('viewer.typography'),
         });
+        typographyPanel.classList.toggle('has-local-fonts', Boolean(this.readerFontFamilies?.length));
         typographyPanel.hidden = true;
         appendChildren(
             typographyPanel,
+            readerTheme.row,
             readerFontRow,
+            ...readerLocalFontControls.map(control => control.row),
             readerLineHeight.row,
             readerWidth.row,
             readerAlignment.row,
@@ -3386,6 +3465,7 @@ class MarkdownTabView {
             readerFontTrigger,
             readerFontCurrent,
             readerFontOptions,
+            readerLocalFontControls,
             typography,
             typographyToggle,
             typographyPanel,
@@ -3395,6 +3475,8 @@ class MarkdownTabView {
             readerWidthGroup: readerWidth.group,
             readerAlignmentLabel: readerAlignment.label,
             readerAlignmentGroup: readerAlignment.group,
+            readerThemeLabel: readerTheme.label,
+            readerThemeGroup: readerTheme.group,
             ...documentSearchControls,
             sourcePeekToggle,
             sourcePeekLabel,
@@ -3500,6 +3582,35 @@ class MarkdownTabView {
     }
 
     bindActions() {
+        const fontControls = this.elements.readerLocalFontControls;
+        for (const { kind, menu, summary, select } of fontControls) {
+            const update = () => this.changeReaderLocalFont(kind, select.value);
+            const close = () => {
+                menu.removeAttribute('open');
+                summary.focus?.();
+            };
+            this.listen(select, 'input', update);
+            this.listen(select, 'change', update);
+            this.listen(select, 'click', event => {
+                const option = event.target?.closest?.('option');
+                if (!option) return;
+                this.changeReaderLocalFont(kind, option.value);
+                close();
+            });
+            this.listen(select, 'keydown', event => {
+                if (event.key !== 'Enter' && event.key !== 'Escape') return;
+                event.preventDefault();
+                event.stopPropagation();
+                close();
+            });
+            this.listen(menu, 'toggle', () => {
+                if (!menu.hasAttribute('open')) return;
+                for (const other of fontControls) {
+                    if (other.menu !== menu) other.menu.removeAttribute('open');
+                }
+                select.focus?.();
+            });
+        }
         this.listen(this.elements.navigationBack, 'click', () => {
             this.editor.goNavigationBack?.();
         });
@@ -3629,6 +3740,27 @@ class MarkdownTabView {
             this.changeReaderAlignment(
                 button.getAttribute('data-reader-alignment')
             );
+        });
+        const themeGroup = this.elements.readerThemeGroup;
+        this.listen(themeGroup, 'click', event => {
+            const choice = event.target?.closest?.('[data-reader-theme-choice]');
+            if (choice && themeGroup.contains(choice)) {
+                this.changeReaderTheme(choice.getAttribute('data-reader-theme-choice'));
+            }
+        });
+        this.listen(themeGroup, 'keydown', event => {
+            const choices = [...themeGroup.querySelectorAll('[data-reader-theme-choice]')];
+            const index = choices.indexOf(event.target);
+            if (index < 0) return;
+            const offset = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1
+                : ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : 0;
+            const next = event.key === 'Home' ? choices[0]
+                : event.key === 'End' ? choices.at(-1)
+                    : offset && choices[(index + offset + choices.length) % choices.length];
+            if (!next) return;
+            event.preventDefault();
+            this.changeReaderTheme(next.getAttribute('data-reader-theme-choice'));
+            next.focus?.();
         });
         this.listen(this.elements.reparse, 'click', event => {
             void this.reparseDocument(event.currentTarget);
@@ -4798,11 +4930,44 @@ class MarkdownTabView {
         this.readerFont = nextFont;
         this.host.style.setProperty(
             '--reader-font',
-            getMarkdownReaderFontFamily(this.readerFont)
+            withMarkdownReaderLocalFont(
+                this.readerLocalFonts.source,
+                getMarkdownReaderFontFamily(this.readerFont)
+            )
         );
         if (changed) this.editor?.requestMeasure?.();
         if (!this.elements) return;
         this.syncReaderFontPicker();
+    }
+
+    setReaderLocalFonts(fonts) {
+        const changed = Object.keys({ ...this.readerLocalFonts, ...fonts })
+            .some(kind => this.readerLocalFonts[kind] !== fonts[kind]);
+        this.readerLocalFonts = { ...fonts };
+        this.host.style.setProperty(
+            '--reader-code-font',
+            withMarkdownReaderLocalFont(fonts.code, 'var(--reader-code-font-default)')
+        );
+        for (const { kind, current, select } of this.elements.readerLocalFontControls) {
+            const name = fonts[kind] || '';
+            selectReaderFont(select, name);
+            current.textContent = name || this.t('viewer.fontReaderPreset');
+        }
+        this.setReaderFont(this.readerFont);
+        if (changed) this.editor?.requestMeasure?.();
+    }
+
+    changeReaderLocalFont(kind, name) {
+        if (typeof name !== 'string' || name === (this.readerLocalFonts[kind] || '')) {
+            return;
+        }
+        this.setReaderLocalFonts({ ...this.readerLocalFonts, [kind]: name });
+        try {
+            this.onReaderLocalFontChange?.(kind, name);
+        }
+        catch (error) {
+            this.zotero?.logError?.(error);
+        }
     }
 
     syncReaderFontPicker() {
@@ -4810,7 +4975,10 @@ class MarkdownTabView {
         if (translation) {
             this.host.style.setProperty(
                 '--reader-selected-translation-font',
-                translation.selected.family
+                withMarkdownReaderLocalFont(
+                    this.readerLocalFonts.translation,
+                    translation.selected.family
+                )
             );
         }
         else {
@@ -4841,8 +5009,13 @@ class MarkdownTabView {
         const selectedConfig = options.find(option => (
             option.value === selectedValue
         )) || options[0];
-        const selectedLabel = this.t(selectedConfig.labelKey);
+        const localFont = translatedMode
+            ? this.readerLocalFonts.translation
+            : this.readerLocalFonts.source;
+        const selectedLabel = localFont || this.t(selectedConfig.labelKey);
         const triggerLabel = `${this.t('viewer.textFont')}: ${selectedLabel}`;
+        if (localFont) this.setReaderFontOptionsOpen(false);
+        this.elements.readerFontTrigger.disabled = Boolean(localFont);
         this.elements.readerFontCurrent.textContent = selectedLabel;
         this.elements.readerFontTrigger.setAttribute('aria-label', triggerLabel);
         this.elements.readerFontTrigger.setAttribute('title', triggerLabel);
@@ -4916,7 +5089,12 @@ class MarkdownTabView {
         );
         this.elements.typographyPanel.hidden = !visible;
         this.elements.typography.classList.toggle('is-open', visible);
-        if (!visible) this.setReaderFontOptionsOpen(false);
+        if (!visible) {
+            this.setReaderFontOptionsOpen(false);
+            for (const { menu } of this.elements.readerLocalFontControls) {
+                menu.removeAttribute('open');
+            }
+        }
     }
 
     setReaderFontOptionsOpen(open) {
@@ -5070,6 +5248,36 @@ class MarkdownTabView {
             this.readerAlignment
         );
         if (changed) this.editor?.requestMeasure?.();
+    }
+
+    setReaderTheme(value) {
+        const theme = getMarkdownReaderThemeOption(value);
+        const previousScheme = this.host.getAttribute('data-reader-color-scheme');
+        this.readerTheme = theme.value;
+        this.host.setAttribute('data-reader-theme', theme.value);
+        if (theme.colorScheme) {
+            this.host.setAttribute('data-reader-color-scheme', theme.colorScheme);
+        }
+        else {
+            this.host.removeAttribute('data-reader-color-scheme');
+        }
+        this.syncTypographySegment(
+            this.elements?.readerThemeGroup, 'data-reader-theme-choice', theme.value
+        );
+        if (previousScheme !== theme.colorScheme) {
+            refreshRenderedCodeTheme(this.mount, this.document, theme.colorScheme);
+        }
+    }
+
+    changeReaderTheme(value) {
+        if (value === this.readerTheme) return;
+        this.setReaderTheme(value);
+        try {
+            this.onReaderThemeChange?.(this.readerTheme);
+        }
+        catch (error) {
+            this.zotero?.logError?.(error);
+        }
     }
 
     syncTypographySegment(group, attribute, selected) {
@@ -6100,6 +6308,11 @@ class MarkdownTabView {
         this.elements.readerAlignmentLabel.textContent = this.t(
             'viewer.alignment'
         );
+        this.elements.readerThemeLabel.textContent = this.t('viewer.readerTheme');
+        this.syncTypographySegmentLabels(
+            this.elements.readerThemeGroup,
+            MARKDOWN_READER_THEME_OPTIONS
+        );
         this.syncTypographySegmentLabels(
             this.elements.readerLineHeightGroup,
             MARKDOWN_READER_LINE_HEIGHT_OPTIONS
@@ -6362,6 +6575,11 @@ class MarkdownTabView {
         this.elements.readerFontFamilyLabel.textContent = this.t(
             'viewer.textFont'
         );
+        for (const { kind, labelKey, label, current, select } of this.elements.readerLocalFontControls) {
+            label.textContent = this.t(labelKey);
+            select.options[0].textContent = this.t('viewer.fontReaderPreset');
+            current.textContent = this.readerLocalFonts[kind] || select.options[0].textContent;
+        }
         this.elements.readerFontOptions.setAttribute(
             'aria-label',
             this.t('viewer.textFont')
@@ -8592,6 +8810,7 @@ class MarkdownTabView {
         sanitizeSnapshotFragment(template.content, this.snapshotURLs);
         elements.snapshotHost.replaceChildren(...template.content.childNodes);
         enhanceRenderedCodeBlocks(elements.snapshotHost, this.document, {
+            colorScheme: this.host.getAttribute('data-reader-color-scheme'),
             copyCode: typeof this.model?.onCopyCode === 'function'
                 ? (code, options) => this.copyCode(code, options)
                 : null,

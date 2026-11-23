@@ -79,7 +79,9 @@ function createViewHarness() {
                 renderCalls,
                 destroyCalls: 0,
                 readerFontCalls: [],
+                readerLocalFontsCalls: [],
                 readerFontSizeCalls: [],
+                readerThemeCalls: [],
                 readerLineHeightCalls: [],
                 readerWidthCalls: [],
                 readerAlignmentCalls: [],
@@ -90,8 +92,14 @@ function createViewHarness() {
                 setReaderFontSize(size) {
                     this.readerFontSizeCalls.push(size);
                 },
+                setReaderTheme(value) {
+                    this.readerThemeCalls.push(value);
+                },
                 setReaderFont(font) {
                     this.readerFontCalls.push(font);
+                },
+                setReaderLocalFonts(fonts) {
+                    this.readerLocalFontsCalls.push({ ...fonts });
                 },
                 setReaderLineHeight(value) {
                     this.readerLineHeightCalls.push(value);
@@ -369,11 +377,15 @@ test('persists reader font size changes across Markdown tabs and sessions', () =
 
     presenter.dispose();
     assert.deepEqual(unregisteredObservers, [
+        'extensions.mktero.readerLocalSourceFont-observer',
+        'extensions.mktero.readerLocalTranslationFont-observer',
+        'extensions.mktero.readerLocalCodeFont-observer',
         'extensions.mktero.readerFont-observer',
         'extensions.mktero.readerFontSize-observer',
         'extensions.mktero.readerLineHeight-observer',
         'extensions.mktero.readerWidth-observer',
         'extensions.mktero.readerAlignment-observer',
+        'extensions.mktero.readerTheme-observer',
         'extensions.mktero.readerSourcePeek-observer',
     ]);
     const nextHarness = createViewHarness();
@@ -447,11 +459,15 @@ test('persists reader font changes across Markdown tabs and sessions', () => {
 
     presenter.dispose();
     assert.deepEqual(unregisteredObservers, [
+        'extensions.mktero.readerLocalSourceFont-observer',
+        'extensions.mktero.readerLocalTranslationFont-observer',
+        'extensions.mktero.readerLocalCodeFont-observer',
         'extensions.mktero.readerFont-observer',
         'extensions.mktero.readerFontSize-observer',
         'extensions.mktero.readerLineHeight-observer',
         'extensions.mktero.readerWidth-observer',
         'extensions.mktero.readerAlignment-observer',
+        'extensions.mktero.readerTheme-observer',
         'extensions.mktero.readerSourcePeek-observer',
     ]);
 });
@@ -481,9 +497,22 @@ test('synchronizes reader typography across Zotero windows and cleans up', () =>
 
     assert.equal(harness.calls[0].document, firstWindow.document);
     assert.equal(harness.calls[1].document, secondWindow.document);
+    assert.equal(harness.calls[0].readerTheme, 'system');
+    harness.calls[0].onReaderThemeChange('dracula');
+    preferenceObservers.get('extensions.mktero.readerTheme')('tokyo-night');
+    assert.deepEqual(first.view.readerThemeCalls, ['dracula', 'tokyo-night']);
+    assert.deepEqual(second.view.readerThemeCalls, ['dracula', 'tokyo-night']);
     preferenceObservers.get('extensions.mktero.readerFont')('cambria');
     assert.deepEqual(first.view.readerFontCalls, ['cambria']);
     assert.deepEqual(second.view.readerFontCalls, ['cambria']);
+    preferenceObservers.get('extensions.mktero.readerLocalSourceFont')('Aptos');
+    harness.calls[0].onReaderLocalFontChange('translation', '微软雅黑');
+    const localFonts = [
+        { source: 'Aptos', translation: '', code: '' },
+        { source: 'Aptos', translation: '微软雅黑', code: '' },
+    ];
+    assert.deepEqual(first.view.readerLocalFontsCalls, localFonts);
+    assert.deepEqual(second.view.readerLocalFontsCalls, localFonts);
     preferenceObservers.get('extensions.mktero.readerFontSize')(20);
     assert.deepEqual(first.view.readerFontSizeCalls, [20]);
     assert.deepEqual(second.view.readerFontSizeCalls, [20]);
@@ -504,11 +533,15 @@ test('synchronizes reader typography across Zotero windows and cleans up', () =>
     assert.deepEqual(firstWindow.closed, [first.tabID]);
     assert.deepEqual(secondWindow.closed, [second.tabID]);
     assert.deepEqual(unregisteredObservers, [
+        'multi-window-extensions.mktero.readerLocalSourceFont-observer',
+        'multi-window-extensions.mktero.readerLocalTranslationFont-observer',
+        'multi-window-extensions.mktero.readerLocalCodeFont-observer',
         'multi-window-extensions.mktero.readerFont-observer',
         'multi-window-extensions.mktero.readerFontSize-observer',
         'multi-window-extensions.mktero.readerLineHeight-observer',
         'multi-window-extensions.mktero.readerWidth-observer',
         'multi-window-extensions.mktero.readerAlignment-observer',
+        'multi-window-extensions.mktero.readerTheme-observer',
         'multi-window-extensions.mktero.readerSourcePeek-observer',
     ]);
 });

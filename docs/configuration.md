@@ -31,9 +31,12 @@ Use the lightning icon (`Test connection`) next to the AI provider to validate a
 
 | Setting | Required | Purpose |
 | --- | --- | --- |
-| Body text font and size | Optional | Choose the reading font and a 14–28 px body size |
+| Original text preset and body size | Optional | Choose the original text fallback and a 14–28 px body size |
+| Original text and translation fonts | Optional | Choose an installed font or the reader preset in each dropdown. These settings are also available in the reader's Typography menu |
 | Line height, column width, and alignment | Optional | Choose tight/standard/loose spacing, a narrow/standard/wide measure, and left-aligned or justified text. Left aligned is the default. The column follows the window width, up to 45rem (narrow), 80rem (standard), or 120rem (wide). Text, figures, tables, and code share that width |
 | PDF source thumbnail | Optional, on by default | Show a live PDF crop of the current paragraph. The same switch is in the reader's `Typography` panel |
+| Color theme | Optional, defaults to System | Follow system light/dark mode or choose a preset. The reader's `Typography` panel also changes this setting |
+| Code block font | Optional | Choose an installed font or keep the default monospace stack. This setting is also available in `Typography` |
 
 For controls inside the reader, see [Adjust the reading view](./reading.md#adjust-the-reading-view).
 
@@ -55,6 +58,16 @@ Clearing the local cache asks for confirmation.
 - The access token and refresh token stay unencrypted in the active Zotero profile. MinerU, Mistral, and AI credentials are also ordinary, unencrypted preferences in that profile.
 
 If MinerU cloud returns `HTTP 401` or `token expired`, update the MinerU API key in `Settings -> Mktero`. Get a new key from [MinerU's official API key management page](https://mineru.net/apiManage/token). Signing in again in your browser does not update the key saved in the plugin.
+
+In Clash Verge Rev, use Rule mode and add the following under the active subscription's **Edit Rules → Prepend**. These hosts cover the cloud API and the upload and download hosts shown in the MinerU API documentation. For a local YAML profile, insert these lines at the top of its existing `rules:` list. [Clash Verge Rev rules](https://www.clashverge.dev/guide/rules.html) · [MinerU API documentation](https://mineru.net/doc/docs/index.html)
+
+```yaml
+  - DOMAIN,mineru.net,DIRECT
+  - DOMAIN,mineru.oss-cn-shanghai.aliyuncs.com,DIRECT
+  - DOMAIN,cdn-mineru.openxlab.org.cn,DIRECT
+```
+
+Run a conversion and check that the matching hosts show `DIRECT` under **Connections**. MinerU supplies the upload and download addresses at runtime. If the service returns a different host, add its hostname as another `DOMAIN` rule.
 
 `Parsing model` belongs to the direct MinerU cloud request only. The Mktero service picks the model on the server, so that setting never reaches hosted conversion, and a self-hosted MinerU service keeps its own fixed request. An operation fixes the model when it starts, before the local-import check and before the PDF is loaded; a setting change applies to later operations only, and opening an item that is already running joins that run instead of moving or cancelling it. A stored value this build does not recognize reads as `VLM`, and so does a pending task recorded before the choice existed. See [MinerU cloud parsing model](./conversion.md#mineru-cloud-parsing-model) for cache, pending, and resume behaviour.
 

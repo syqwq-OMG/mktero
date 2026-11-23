@@ -157,7 +157,7 @@ test('restores cache controls when clearing the cache fails', async () => {
     assert.equal(status.attributes['aria-busy'], 'false');
 });
 
-test('configures the Markdown reader font size from preferences', async () => {
+test('configures Markdown reader typography from preferences', async () => {
     const dom = new JSDOM(`<!doctype html><body>
         <section id="mktero-preferences-pane">
             <input id="mktero-reader-font-size" type="range" min="16" max="22">
@@ -167,6 +167,9 @@ test('configures the Markdown reader font size from preferences', async () => {
                 <option value="georgia">Georgia</option>
                 <option value="cambria">Cambria</option>
             </select>
+            <select id="mktero-reader-local-source-font"></select>
+            <select id="mktero-reader-local-translation-font"></select>
+            <select id="mktero-reader-local-code-font"></select>
             <select id="mktero-reader-line-height">
                 <option value="tight">Tight</option>
                 <option value="standard">Standard</option>
@@ -187,16 +190,26 @@ test('configures the Markdown reader font size from preferences', async () => {
         </section>
     </body>`);
     const writes = [];
+    const fontObservers = new Map();
     const zotero = {
         Prefs: {
-            get: key => key === 'extensions.mktero.readerFontSize' ? 20 : null,
+            get: key => ({
+                'extensions.mktero.readerFontSize': 20,
+                'extensions.mktero.readerLocalSourceFont': 'Aptos',
+            })[key],
             set: (key, value, global) => writes.push({ key, value, global }),
+            registerObserver(key, observer) {
+                fontObservers.set(key, observer);
+                return key;
+            },
+            unregisterObserver: key => fontObservers.delete(key),
         },
         logError: assert.fail,
     };
     const controller = createPreferencesController({
         document: dom.window.document,
         zotero,
+        readerFontFamilies: ['微软雅黑', 'Cambria', 'Cambria'],
         cache: {
             getStats: async () => ({ entries: 0, sizeBytes: 0 }),
             clear: async () => {},
@@ -226,6 +239,30 @@ test('configures the Markdown reader font size from preferences', async () => {
     assert.equal(font.value, 'system-serif');
     font.value = 'cambria';
     font.dispatchEvent(new dom.window.Event('change'));
+    const localSource = dom.window.document.getElementById(
+        'mktero-reader-local-source-font'
+    );
+    const localTranslation = dom.window.document.getElementById(
+        'mktero-reader-local-translation-font'
+    );
+    assert.equal(localSource.value, 'Aptos');
+    assert.equal(localTranslation.value, '');
+    assert.deepEqual(
+        [...localTranslation.options].map(option => option.value).sort(),
+        ['', 'Cambria', '微软雅黑']
+    );
+    fontObservers.get('extensions.mktero.readerLocalSourceFont')('Cambria');
+    assert.equal(localSource.value, 'Cambria');
+    assert.equal(localTranslation.value, '');
+    localSource.value = '';
+    localSource.dispatchEvent(new dom.window.Event('change'));
+    localTranslation.value = '微软雅黑';
+    localTranslation.dispatchEvent(new dom.window.Event('change'));
+    assert.equal(localTranslation.value, '微软雅黑');
+    const codeFont = dom.window.document.getElementById('mktero-reader-local-code-font');
+    assert.equal(codeFont.value, '');
+    codeFont.value = 'Cambria';
+    codeFont.dispatchEvent(new dom.window.Event('change'));
     const lineHeight = dom.window.document.getElementById(
         'mktero-reader-line-height'
     );
@@ -260,6 +297,21 @@ test('configures the Markdown reader font size from preferences', async () => {
             global: true,
         },
         {
+            key: 'extensions.mktero.readerLocalSourceFont',
+            value: '',
+            global: true,
+        },
+        {
+            key: 'extensions.mktero.readerLocalTranslationFont',
+            value: '微软雅黑',
+            global: true,
+        },
+        {
+            key: 'extensions.mktero.readerLocalCodeFont',
+            value: 'Cambria',
+            global: true,
+        },
+        {
             key: 'extensions.mktero.readerLineHeight',
             value: 'loose',
             global: true,
@@ -282,13 +334,62 @@ test('configures the Markdown reader font size from preferences', async () => {
     ]);
 
     controller.destroy();
+    assert.equal(fontObservers.size, 0);
     input.value = '21';
     input.dispatchEvent(new dom.window.Event('input'));
     font.value = 'georgia';
     font.dispatchEvent(new dom.window.Event('change'));
+    localTranslation.value = '';
+    localTranslation.dispatchEvent(new dom.window.Event('change'));
     sourcePeek.checked = true;
     sourcePeek.dispatchEvent(new dom.window.Event('change'));
-    assert.equal(withoutServiceSourceWrites(writes).length, 6);
+    assert.equal(withoutServiceSourceWrites(writes).length, 9);
+});
+
+test('persists reader themes and follows changes from the reading toolbar', async () => {
+    const dom = new JSDOM(`<!doctype html><body>
+        <section id="mktero-preferences-pane">
+            <select id="mktero-reader-theme"></select>
+            <span id="mktero-cache-status"></span>
+            <button id="mktero-clear-cache"></button>
+        </section>
+    </body>`);
+    const pref = 'extensions.mktero.readerTheme';
+    const observers = new Map();
+    let saved = 'dracula';
+    const controller = createPreferencesController({
+        document: dom.window.document,
+        zotero: {
+            Prefs: {
+                get: key => key === pref ? saved : undefined,
+                set(key, value) { if (key === pref) saved = value; },
+                registerObserver(key, observer) {
+                    observers.set(key, observer);
+                    return key;
+                },
+                unregisterObserver: key => observers.delete(key),
+            },
+        },
+        cache: {
+            getStats: async () => ({ entries: 0, sizeBytes: 0 }),
+        },
+    });
+    await controller.init();
+    const select = dom.window.document.getElementById('mktero-reader-theme');
+    assert.equal(select.value, 'dracula');
+    assert.deepEqual([...select.options].map(option => option.value), [
+        'system', 'catppuccin-latte', 'catppuccin-mocha', 'dracula', 'gruvbox', 'tokyo-night',
+    ]);
+    select.value = 'gruvbox';
+    select.dispatchEvent(new dom.window.Event('change'));
+    assert.equal(saved, 'gruvbox');
+    observers.get(pref)('tokyo-night');
+    assert.equal(select.value, 'tokyo-night');
+    observers.get(pref)('unknown');
+    assert.equal(select.value, 'system');
+    controller.destroy();
+    assert.equal(observers.has(pref), false);
+    dom.window.close();
 });
 
 test('switches one conversion API key field with the selected provider', async () => {

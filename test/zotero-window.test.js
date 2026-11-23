@@ -4,6 +4,7 @@ import {
     createWindowFetch,
     createWindowTimers,
     lifetimeZoteroWindow,
+    listZoteroFontFamilies,
     liveZoteroWindow,
     openWindow,
 } from '../src/platform/zotero-window.js';
@@ -13,6 +14,23 @@ function notInitialized() {
     error.name = 'NS_ERROR_NOT_INITIALIZED';
     return error;
 }
+
+test('lists installed fonts using the Gecko font enumerator', () => {
+    const fontEnumerator = {};
+    const components = {
+        classes: {
+            '@mozilla.org/gfx/fontenumerator;1': {
+                createInstance(interfaceType) {
+                    assert.equal(interfaceType, fontEnumerator);
+                    return { EnumerateAllFonts: () => ['Aptos', '微软雅黑'] };
+                },
+            },
+        },
+        interfaces: { nsIFontEnumerator: fontEnumerator },
+    };
+    assert.deepEqual(listZoteroFontFamilies(components), ['Aptos', '微软雅黑']);
+    assert.deepEqual(listZoteroFontFamilies(null), []);
+});
 
 // A window whose methods throw once it closes, like a closed Gecko window.
 function fakeWindow(name, log) {

@@ -70,6 +70,7 @@ import {
     createCopyDelivery,
 } from './copy-delivery.js';
 import {
+    isCorrectionClick,
     isCorrectionInteractionTarget,
     isEditableTextCorrectionBlock,
 } from './correction-interactions.js';
@@ -1243,8 +1244,8 @@ export function createInlineMarkdownEditor({
         onCancel: cancelActiveCorrection,
         onDelete: () => { void deleteActiveCorrection(); },
     });
-    const startCorrectionFromDoubleClick = event => {
-        if (event.button !== 0
+    const startCorrectionFromClick = event => {
+        if (!isCorrectionClick(event)
             || tableCorrectionEditing
             || event.target?.closest?.('.cm-mktero-table')
             || correctionToolbar?.contains?.(event.target)
@@ -1295,8 +1296,8 @@ export function createInlineMarkdownEditor({
         event.stopPropagation();
     };
     parent.addEventListener(
-        'dblclick',
-        startCorrectionFromDoubleClick,
+        'click',
+        startCorrectionFromClick,
         true
     );
     // A drag ends in a pointer-up, and a keyboard selection in a key-up. The
@@ -2444,8 +2445,8 @@ export function createInlineMarkdownEditor({
                     true
                 );
                 parent.removeEventListener(
-                    'dblclick',
-                    startCorrectionFromDoubleClick,
+                    'click',
+                    startCorrectionFromClick,
                     true
                 );
                 cancelStalledViewportRepair();

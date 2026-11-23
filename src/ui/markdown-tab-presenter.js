@@ -6,9 +6,13 @@ import {
     getMarkdownReaderFont,
     getMarkdownReaderFontSize,
     getMarkdownReaderLineHeight,
+    getMarkdownReaderLocalFont,
     getMarkdownReaderPanelLayout,
     getMarkdownReaderSourcePeek,
+    getMarkdownReaderTheme,
+    getMarkdownReaderThemeOption,
     getMarkdownReaderWidth,
+    MARKDOWN_READER_LOCAL_FONT_PREFS,
     normalizeMarkdownReaderAlignment,
     normalizeMarkdownReaderFont,
     normalizeMarkdownReaderFontSize,
@@ -19,14 +23,18 @@ import {
     observeMarkdownReaderFont,
     observeMarkdownReaderFontSize,
     observeMarkdownReaderLineHeight,
+    observeMarkdownReaderLocalFont,
     observeMarkdownReaderSourcePeek,
+    observeMarkdownReaderTheme,
     observeMarkdownReaderWidth,
     setMarkdownReaderAlignment,
     setMarkdownReaderFont,
     setMarkdownReaderFontSize,
     setMarkdownReaderLineHeight,
+    setMarkdownReaderLocalFont,
     setMarkdownReaderPanelLayout,
     setMarkdownReaderSourcePeek,
+    setMarkdownReaderTheme,
     setMarkdownReaderWidth,
 } from '../config/reader-preferences.js';
 import { createLocalization } from '../i18n/localization.js';
@@ -62,22 +70,34 @@ export class MarkdownTabPresenter {
         createView = createMarkdownTabView,
         createContextPane = createZoteroContextPane,
         localization = createLocalization(),
+        readerFontFamilies = null,
     }) {
         this.zotero = zotero;
         this.rootURI = rootURI;
         this.createView = createView;
         this.createContextPane = createContextPane;
         this.localization = localization;
+        this.readerFontFamilies = readerFontFamilies;
         this.readerFont = getMarkdownReaderFont(zotero);
+        this.readerLocalFonts = {};
         this.readerFontSize = getMarkdownReaderFontSize(zotero);
         this.readerLineHeight = getMarkdownReaderLineHeight(zotero);
         this.readerWidth = getMarkdownReaderWidth(zotero);
         this.readerAlignment = getMarkdownReaderAlignment(zotero);
+        this.readerTheme = getMarkdownReaderTheme(zotero);
         this.readerSourcePeek = getMarkdownReaderSourcePeek(zotero);
         this.navigationShortcuts = navigationShortcutLabels({
             isMac: zotero?.isMac === true,
         });
         this.presentations = new Map();
+        this.disposeReaderLocalFontObservers = Object.entries(
+            MARKDOWN_READER_LOCAL_FONT_PREFS
+        ).map(([kind, pref]) => {
+            this.readerLocalFonts[kind] = getMarkdownReaderLocalFont(zotero, pref);
+            return observeMarkdownReaderLocalFont(
+                zotero, pref, name => this.applyReaderLocalFont(kind, name)
+            );
+        });
         this.disposeReaderFontObserver = observeMarkdownReaderFont(
             zotero,
             font => this.applyReaderFont(font)
@@ -97,6 +117,10 @@ export class MarkdownTabPresenter {
         this.disposeReaderAlignmentObserver = observeMarkdownReaderAlignment(
             zotero,
             value => this.applyReaderAlignment(value)
+        );
+        this.disposeReaderThemeObserver = observeMarkdownReaderTheme(
+            zotero,
+            value => this.applyReaderTheme(value)
         );
         this.disposeReaderSourcePeekObserver = observeMarkdownReaderSourcePeek(
             zotero,
@@ -401,12 +425,22 @@ export class MarkdownTabPresenter {
             zotero: this.zotero,
             localization: this.localization,
             readerFont: this.readerFont,
+            readerLocalFonts: this.readerLocalFonts,
+            readerFontFamilies: this.readerFontFamilies,
+            onReaderLocalFontChange: (kind, name) => {
+                const pref = MARKDOWN_READER_LOCAL_FONT_PREFS[kind];
+                this.applyReaderLocalFont(
+                    kind, setMarkdownReaderLocalFont(this.zotero, pref, name)
+                );
+            },
             readerFontSize: this.readerFontSize,
             onReaderFontChange: font => this.updateReaderFont(font),
             onReaderFontSizeChange: size => this.updateReaderFontSize(size),
             readerLineHeight: this.readerLineHeight,
             readerWidth: this.readerWidth,
             readerAlignment: this.readerAlignment,
+            readerTheme: this.readerTheme,
+            onReaderThemeChange: value => this.updateReaderTheme(value),
             onReaderLineHeightChange: value => (
                 this.updateReaderLineHeight(value)
             ),
@@ -540,6 +574,14 @@ export class MarkdownTabPresenter {
         }
     }
 
+    applyReaderLocalFont(kind, name) {
+        if (this.readerLocalFonts[kind] === name) return;
+        this.readerLocalFonts[kind] = name;
+        for (const { view } of this.presentations.values()) {
+            view.setReaderLocalFonts?.(this.readerLocalFonts);
+        }
+    }
+
     applyReaderFontSize(size) {
         const normalized = normalizeMarkdownReaderFontSize(size);
         if (normalized === this.readerFontSize) return;
@@ -574,6 +616,25 @@ export class MarkdownTabPresenter {
         for (const presentation of this.presentations.values()) {
             presentation.view.setReaderAlignment?.(normalized);
         }
+    }
+
+    applyReaderTheme(value) {
+        if (value === this.readerTheme) return;
+        this.readerTheme = value;
+        for (const { view } of this.presentations.values()) {
+            view.setReaderTheme?.(value);
+        }
+    }
+
+    updateReaderTheme(value) {
+        const { value: normalized } = getMarkdownReaderThemeOption(value);
+        try {
+            setMarkdownReaderTheme(this.zotero, normalized);
+        }
+        catch (error) {
+            this.zotero.logError?.(error);
+        }
+        this.applyReaderTheme(normalized);
     }
 
     updateReaderLineHeight(value) {
@@ -695,6 +756,9 @@ export class MarkdownTabPresenter {
     }
 
     dispose() {
+        for (const dispose of this.disposeReaderLocalFontObservers.splice(0)) {
+            dispose();
+        }
         this.disposeReaderFontObserver?.();
         this.disposeReaderFontObserver = null;
         this.disposeReaderFontSizeObserver?.();
@@ -705,6 +769,8 @@ export class MarkdownTabPresenter {
         this.disposeReaderWidthObserver = null;
         this.disposeReaderAlignmentObserver?.();
         this.disposeReaderAlignmentObserver = null;
+        this.disposeReaderThemeObserver?.();
+        this.disposeReaderThemeObserver = null;
         this.disposeReaderSourcePeekObserver?.();
         this.disposeReaderSourcePeekObserver = null;
         this.closeAll({ reason: MARKDOWN_TAB_CLOSE_REASONS.SHUTDOWN });

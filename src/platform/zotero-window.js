@@ -38,6 +38,17 @@ export function lifetimeZoteroWindow({
         || openWindow(() => zotero?.getMainWindow?.());
 }
 
+export function listZoteroFontFamilies(components) {
+    try {
+        const enumerator = components.classes['@mozilla.org/gfx/fontenumerator;1']
+            .createInstance(components.interfaces.nsIFontEnumerator);
+        return enumerator.EnumerateAllFonts({});
+    }
+    catch {
+        return [];
+    }
+}
+
 // A fetch that calls the window `resolveWindow` yields at request time.
 // `fallback` is used when no window offers fetch.
 export function createWindowFetch(resolveWindow, { fallback } = {}) {

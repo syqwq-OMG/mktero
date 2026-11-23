@@ -2,9 +2,23 @@ export const MARKDOWN_READER_FONT_SIZE_PREF
     = 'extensions.mktero.readerFontSize';
 export const MARKDOWN_READER_FONT_SIZE_DEFAULT = 18;
 export const MARKDOWN_READER_FONT_SIZE_MIN = 14;
+export const MARKDOWN_READER_THEME_PREF = 'extensions.mktero.readerTheme';
+export const MARKDOWN_READER_THEME_OPTIONS = Object.freeze([
+    { value: 'system', labelKey: 'viewer.themeSystem', colorScheme: null },
+    { value: 'catppuccin-latte', labelKey: 'viewer.themeCatppuccinLatte', colorScheme: 'light' },
+    { value: 'catppuccin-mocha', labelKey: 'viewer.themeCatppuccinMocha', colorScheme: 'dark' },
+    { value: 'dracula', labelKey: 'viewer.themeDracula', colorScheme: 'dark' },
+    { value: 'gruvbox', labelKey: 'viewer.themeGruvbox', colorScheme: 'dark' },
+    { value: 'tokyo-night', labelKey: 'viewer.themeTokyoNight', colorScheme: 'dark' },
+].map(Object.freeze));
 export const MARKDOWN_READER_FONT_SIZE_MAX = 28;
 export const MARKDOWN_READER_FONT_PREF = 'extensions.mktero.readerFont';
 export const MARKDOWN_READER_FONT_DEFAULT = 'system-serif';
+export const MARKDOWN_READER_LOCAL_FONT_PREFS = Object.freeze({
+    source: 'extensions.mktero.readerLocalSourceFont',
+    translation: 'extensions.mktero.readerLocalTranslationFont',
+    code: 'extensions.mktero.readerLocalCodeFont',
+});
 export const MARKDOWN_READER_SOURCE_PEEK_PREF
     = 'extensions.mktero.readerSourcePeek';
 export const MARKDOWN_READER_SOURCE_PEEK_DEFAULT = true;
@@ -132,6 +146,31 @@ export function getMarkdownReaderFontSize(zotero) {
     );
 }
 
+export function getMarkdownReaderThemeOption(value) {
+    return MARKDOWN_READER_THEME_OPTIONS.find(option => option.value === value)
+        || MARKDOWN_READER_THEME_OPTIONS[0];
+}
+
+export function getMarkdownReaderTheme(zotero) {
+    return getMarkdownReaderThemeOption(
+        zotero?.Prefs?.get?.(MARKDOWN_READER_THEME_PREF, true)
+    ).value;
+}
+
+export function setMarkdownReaderTheme(zotero, value) {
+    const { value: normalized } = getMarkdownReaderThemeOption(value);
+    zotero?.Prefs?.set?.(MARKDOWN_READER_THEME_PREF, normalized, true);
+    return normalized;
+}
+
+export function observeMarkdownReaderTheme(zotero, onChange) {
+    return observeReaderPreference(
+        zotero,
+        MARKDOWN_READER_THEME_PREF,
+        value => onChange(getMarkdownReaderThemeOption(value).value)
+    );
+}
+
 export function setMarkdownReaderFontSize(zotero, value) {
     const normalized = normalizeMarkdownReaderFontSize(value);
     zotero?.Prefs?.set?.(MARKDOWN_READER_FONT_SIZE_PREF, normalized, true);
@@ -197,6 +236,37 @@ export function getMarkdownReaderFontFamily(value) {
     return MARKDOWN_READER_FONT_OPTIONS.find(option => (
         option.value === normalized
     )).family;
+}
+
+export function getMarkdownReaderLocalFont(zotero, pref) {
+    return normalizeLocalFontName(zotero?.Prefs?.get?.(pref, true));
+}
+
+export function setMarkdownReaderLocalFont(zotero, pref, value) {
+    const name = normalizeLocalFontName(value);
+    zotero?.Prefs?.set?.(pref, name, true);
+    return name;
+}
+
+export function observeMarkdownReaderLocalFont(zotero, pref, onChange) {
+    return observeReaderPreference(
+        zotero,
+        pref,
+        value => onChange(normalizeLocalFontName(value))
+    );
+}
+
+export function withMarkdownReaderLocalFont(name, fallback) {
+    const normalized = normalizeLocalFontName(name);
+    if (!normalized) return fallback;
+    const quoted = normalized.replace(/["\\]/g, character => `\\${character}`);
+    return `"${quoted}", ${fallback}`;
+}
+
+export function normalizeLocalFontName(value) {
+    if (typeof value !== 'string' || /[\x00-\x1f\x7f]/.test(value)) return '';
+    const name = value.trim();
+    return name.length <= 128 ? name : '';
 }
 
 export function getMarkdownReaderSourcePeek(zotero) {

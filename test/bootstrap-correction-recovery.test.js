@@ -138,7 +138,7 @@ test('saves an open correction when its tab closes and opens past damaged correc
         const editorView = EditorView.findFromDOM(shadow.querySelector('.cm-editor'));
         editorView.posAtCoords = () => 2;
         const content = shadow.querySelector('.cm-content');
-        content.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true, cancelable: true, button: 0 }));
+        content.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, altKey: true }));
         assert.equal(content.getAttribute('contenteditable'), 'true');
         editorView.dispatch({ changes: { from: 0, to: replacedLength, insert: replacement } });
     };

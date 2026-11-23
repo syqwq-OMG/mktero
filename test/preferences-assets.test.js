@@ -140,6 +140,8 @@ test('ships conversion, AI, cache preferences, and localized Markdown UI assets'
     assert.doesNotMatch(pane, /id="mktero-citation-section"/);
     assert.match(pane, /preference="extensions\.mktero\.readerFontSize"/);
     assert.match(pane, /preference="extensions\.mktero\.readerFont"/);
+    assert.match(pane, /<html:select id="mktero-reader-local-source-font"/);
+    assert.match(pane, /<html:select id="mktero-reader-local-translation-font"/);
     assert.match(pane, /preference="extensions\.mktero\.readerSourcePeek"/);
     assert.match(pane, /preference="extensions\.mktero\.readerLineHeight"/);
     assert.match(pane, /preference="extensions\.mktero\.readerWidth"/);
@@ -360,13 +362,13 @@ test('keeps preference fields in an aligned responsive grid layout', async () =>
         (pane.match(
             /class="mktero-setting-row mktero-(?:field|reader-font)-row[^\"]*"/g
         ) || []).length,
-        21
+        25
     );
     assert.equal(
         (pane.match(
             /<html:div class="mktero-field-control(?: [^"]+)?">/g
         ) || []).length,
-        16
+        20
     );
 });
 

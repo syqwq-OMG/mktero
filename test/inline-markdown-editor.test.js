@@ -27,10 +27,11 @@ import { createLocalization } from '../src/i18n/localization.js';
 import { hoverReference } from './helpers/reference-hover.js';
 
 function enterTableCellEditing(cell, ownerWindow) {
-    cell.dispatchEvent(new ownerWindow.MouseEvent('dblclick', {
+    cell.dispatchEvent(new ownerWindow.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
 }
 
@@ -3119,10 +3120,11 @@ test('keeps later rendered widgets while typing in a correction block', () => {
     assert.ok(formula);
 
     view.posAtCoords = () => 4;
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
         clientX: 8,
         clientY: 8,
     }));
@@ -3279,10 +3281,19 @@ test('commits one paragraph block directly from read-only mode', async () => {
         }
     });
 
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    const doubleClick = new dom.window.MouseEvent('dblclick', {
         bubbles: true,
         cancelable: true,
         button: 0,
+    });
+    assert.equal(content.dispatchEvent(doubleClick), true);
+    assert.equal(content.getAttribute('contenteditable'), 'false');
+
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        altKey: true,
     }));
     assert.equal(content.getAttribute('contenteditable'), 'true');
     editor.setCorrectionState({ enabled: false, blocks });
@@ -3352,10 +3363,11 @@ test('edits prose while protecting formulas in a correction block', async () => 
     }));
     assert.ok(document.querySelector('.mktero-markdown-selection-actions'));
 
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
 
     assert.equal(content.getAttribute('contenteditable'), 'true');
@@ -3434,10 +3446,11 @@ test('protects annotated text and submits its exact mapped range', async () => {
     const view = EditorView.findFromDOM(document.querySelector('.cm-editor'));
     const content = document.querySelector('.cm-content');
     view.posAtCoords = () => 1;
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
 
     view.dispatch({ changes: { from: 0, insert: 'New ' } });
@@ -3509,10 +3522,11 @@ test('does not start direct correction from an interactive link', () => {
     view.posAtCoords = () => 1;
 
     document.querySelector('.cm-mktero-link').dispatchEvent(
-        new dom.window.MouseEvent('dblclick', {
+        new dom.window.MouseEvent('click', {
             bubbles: true,
             cancelable: true,
             button: 0,
+            altKey: true,
         })
     );
 
@@ -3533,10 +3547,11 @@ test('does not start direct correction from an interactive link', () => {
     assert.equal(content.getAttribute('contenteditable'), 'false');
 
     view.posAtCoords = () => markdown.indexOf('text');
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     assert.equal(content.getAttribute('contenteditable'), 'true');
 
@@ -3585,10 +3600,11 @@ test('uses the clicked rendered line when CodeMirror coordinates lag behind',
     ));
     assert.ok(keywordLine);
 
-    keywordLine.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    keywordLine.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     view.dispatch({
         changes: {
@@ -3609,10 +3625,11 @@ test('uses the clicked rendered line when CodeMirror coordinates lag behind',
         line.textContent.startsWith('Copyright')
     ));
     assert.ok(copyrightLine);
-    copyrightLine.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    copyrightLine.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     assert.equal(
         document.querySelector('.cm-content').getAttribute('contenteditable'),
@@ -3657,10 +3674,11 @@ test('does not start correction from an open selection actions popup', () => {
 
     const view = EditorView.findFromDOM(document.querySelector('.cm-editor'));
     view.posAtCoords = () => 0;
-    popup.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    popup.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
 
     assert.equal(
@@ -3698,10 +3716,11 @@ test('deletes a whole correction block after removing its final character', asyn
     const view = EditorView.findFromDOM(document.querySelector('.cm-editor'));
     view.posAtCoords = () => from + 1;
     const content = document.querySelector('.cm-content');
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
 
     view.dispatch({
@@ -3754,11 +3773,12 @@ test('opens block correction actions directly from read-only mode', async () => 
     view.posAtCoords = () => 1;
     const content = document.querySelector('.cm-content');
     const begin = () => content.dispatchEvent(new dom.window.MouseEvent(
-        'dblclick',
+        'click',
         {
             bubbles: true,
             cancelable: true,
             button: 0,
+            altKey: true,
         }
     ));
 
@@ -4121,10 +4141,11 @@ test('restores a deleted correction block when saving fails', async () => {
     const view = EditorView.findFromDOM(document.querySelector('.cm-editor'));
     view.posAtCoords = () => 0;
     const content = document.querySelector('.cm-content');
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     view.dispatch({ changes: { from: 0, to: markdown.length, insert: '' } });
     content.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
@@ -4182,10 +4203,11 @@ test('does not save a correction while an IME composition is active', async () =
             bubbledSaveShortcuts++;
         }
     });
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     content.dispatchEvent(new dom.window.CompositionEvent('compositionstart', {
         bubbles: true,
@@ -4410,6 +4432,14 @@ test('commits a rendered GFM table cell directly from read-only mode', async () 
     const valueCell = document.querySelector(
         '.cm-mktero-table tbody td:last-child'
     );
+
+    const doubleClick = new dom.window.MouseEvent('dblclick', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+    });
+    assert.equal(valueCell.dispatchEvent(doubleClick), true);
+    assert.equal(valueCell.getAttribute('contenteditable'), 'false');
 
     enterTableCellEditing(valueCell, dom.window);
     assert.equal(valueCell.getAttribute('contenteditable'), 'true');
@@ -4795,19 +4825,21 @@ test('does not open a text correction while a table edit is active', () => {
     assert.equal(cell.getAttribute('contenteditable'), 'true');
 
     view.posAtCoords = () => 1;
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     assert.equal(content.getAttribute('contenteditable'), 'false');
     assert.equal(cell.getAttribute('contenteditable'), 'true');
 
     document.querySelector('.mktero-correction-editor-cancel').click();
-    content.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    content.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
     assert.equal(content.getAttribute('contenteditable'), 'true');
 
@@ -7796,10 +7828,11 @@ test('does not start correction from the image preview stage', () => {
 
     const view = EditorView.findFromDOM(document.querySelector('.cm-editor'));
     view.posAtCoords = () => 0;
-    stage.dispatchEvent(new dom.window.MouseEvent('dblclick', {
+    stage.dispatchEvent(new dom.window.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         button: 0,
+        altKey: true,
     }));
 
     assert.equal(
@@ -10754,10 +10787,11 @@ test('keeps a scrolled correction rendered when height lookup stays stale',
 
     view.posAtCoords = () => targetOffset + 10;
     document.querySelector('.cm-content').dispatchEvent(
-        new dom.window.MouseEvent('dblclick', {
+        new dom.window.MouseEvent('click', {
             bubbles: true,
             cancelable: true,
             button: 0,
+            altKey: true,
         })
     );
     viewportOffsets.length = 0;
@@ -11425,8 +11459,8 @@ test('reports an unsaved block correction for a closing tab to save', async () =
     view.posAtCoords = () => 1;
     const content = document.querySelector('.cm-content');
     const begin = () => content.dispatchEvent(new dom.window.MouseEvent(
-        'dblclick',
-        { bubbles: true, cancelable: true, button: 0 }
+        'click',
+        { bubbles: true, cancelable: true, button: 0, altKey: true }
     ));
 
     assert.equal(editor.getPendingCorrection(), null);
@@ -11778,11 +11812,12 @@ function footnoteDocument(body, note = '$^{1}$ The source of the claim.') {
     ].join('\n');
 }
 
-function dispatchMouse(element, window, type) {
+function dispatchMouse(element, window, type, options = {}) {
     element.dispatchEvent(new window.MouseEvent(type, {
         bubbles: true,
         cancelable: true,
         button: 0,
+        ...options,
     }));
 }
 
@@ -12042,12 +12077,12 @@ test('editing a paragraph hides its footnote link and does not break the note', 
     const content = document.querySelector('.cm-content');
     const reference = document.querySelector('.cm-mktero-footnote-ref');
 
-    dispatchMouse(reference, window, 'dblclick');
+    dispatchMouse(reference, window, 'click', { altKey: true });
     assert.equal(content.getAttribute('contenteditable'), 'false');
     assert.equal(reference.isConnected, true);
 
     view.posAtCoords = () => 8;
-    dispatchMouse(content, window, 'dblclick');
+    dispatchMouse(content, window, 'click', { altKey: true });
     assert.equal(content.getAttribute('contenteditable'), 'true');
     assert.equal(document.querySelector('.cm-mktero-footnote-ref'), null);
     assert.match(content.textContent, /\$\^\{1\}/);

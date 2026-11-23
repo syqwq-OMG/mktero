@@ -79,8 +79,10 @@ These actions read only the rendered document. They send nothing and do not chan
 
 Open `Typography` (`Aa`) in the toolbar to choose:
 
-- The text font and a body size from 14 to 28 px. Open the font list and select a font to apply it immediately to the current reading view.
+- The original text font, translation font, and a body size from 14 to 28 px. Select from installed fonts in the two dropdowns. The same font settings are available in `Settings → Mktero` and apply immediately to open reading tabs. Comparison mode uses both fonts. Select `Reader preset` in either dropdown to restore its preset.
 - Tight, standard, or loose line height.
+- A color theme. Choose System, Catppuccin Latte, Catppuccin Mocha, Dracula, Gruvbox, or Tokyo Night. This also updates other open Mktero reading tabs and the theme setting in Zotero.
+- A separate code block font. Choose an installed font or select `Reader preset` to use the default monospace stack. This applies to Markdown code blocks and saved HTML snapshots.
 - A narrow, standard, or wide column.
 - Left alignment, the default, or justified body text.
 - `PDF source thumbnail`, on by default.

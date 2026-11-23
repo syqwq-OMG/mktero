@@ -47,6 +47,16 @@
               role="tabpanel"
               aria-labelledby="mktero-tab-general">
         <html:div class="mktero-settings-card">
+            <html:div class="mktero-setting-row mktero-field-row">
+                <html:div class="mktero-setting-copy">
+                    <html:label for="mktero-reader-theme">
+                        <html:strong data-i18n="viewer.readerTheme"></html:strong>
+                    </html:label>
+                </html:div>
+                <html:div class="mktero-field-control">
+                    <html:select id="mktero-reader-theme"></html:select>
+                </html:div>
+            </html:div>
             <html:div class="mktero-setting-row mktero-reader-font-row">
                 <html:div class="mktero-setting-copy">
                     <html:label for="mktero-reader-font-size">
@@ -88,6 +98,41 @@
                         <html:option value="cambria" data-i18n="viewer.fontCambria">Cambria</html:option>
                         <html:option value="times-new-roman" data-i18n="viewer.fontTimesNewRoman">Times New Roman</html:option>
                     </html:select>
+                </html:div>
+            </html:div>
+            <html:div class="mktero-setting-row mktero-reader-font-row">
+                <html:div class="mktero-setting-copy">
+                    <html:label for="mktero-reader-local-source-font">
+                        <html:strong data-i18n="preferences.reader.localSourceFont"></html:strong>
+                    </html:label>
+                    <html:small id="mktero-reader-local-font-help"
+                                data-i18n="preferences.reader.localFontHelp"></html:small>
+                </html:div>
+                <html:div class="mktero-field-control">
+                    <html:select id="mktero-reader-local-source-font"
+                                 aria-describedby="mktero-reader-local-font-help"></html:select>
+                </html:div>
+            </html:div>
+            <html:div class="mktero-setting-row mktero-reader-font-row">
+                <html:div class="mktero-setting-copy">
+                    <html:label for="mktero-reader-local-translation-font">
+                        <html:strong data-i18n="preferences.reader.localTranslationFont"></html:strong>
+                    </html:label>
+                </html:div>
+                <html:div class="mktero-field-control">
+                    <html:select id="mktero-reader-local-translation-font"
+                                 aria-describedby="mktero-reader-local-font-help"></html:select>
+                </html:div>
+            </html:div>
+            <html:div class="mktero-setting-row mktero-reader-font-row">
+                <html:div class="mktero-setting-copy">
+                    <html:label for="mktero-reader-local-code-font">
+                        <html:strong data-i18n="preferences.reader.localCodeFont"></html:strong>
+                    </html:label>
+                </html:div>
+                <html:div class="mktero-field-control">
+                    <html:select id="mktero-reader-local-code-font"
+                                 aria-describedby="mktero-reader-local-font-help"></html:select>
                 </html:div>
             </html:div>
             <html:div class="mktero-setting-row mktero-reader-font-row">

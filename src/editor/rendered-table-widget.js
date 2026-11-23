@@ -8,7 +8,10 @@ import {
     installRenderedImagePreview,
     openRenderedLink,
 } from './rendered-markdown-dom.js';
-import { isCorrectionInteractionTarget } from './correction-interactions.js';
+import {
+    isCorrectionClick,
+    isCorrectionInteractionTarget,
+} from './correction-interactions.js';
 import { enhanceTableCopyActions } from './table-copy-actions.js';
 import { installRenderedAnnotations } from './pdf-annotations.js';
 import { installAnnotationsByPosition } from './rendered-source-alignment.js';
@@ -194,7 +197,7 @@ export class RenderedTableWidget extends WidgetType {
     }
 
     // A press belongs to the browser, so a drag selects natively and a cell
-    // enters correction on its own dblclick. A citation or a PDF highlight
+    // enters correction on an Alt/Option-click. A citation or a PDF highlight
     // still reaches the editor for hover, focus, and the click that opens it,
     // whether or not the table can be corrected. A cell being corrected keeps
     // every event to itself.
@@ -362,8 +365,9 @@ export class RenderedTableWidget extends WidgetType {
             });
             return true;
         };
-        cell.addEventListener('dblclick', event => {
-            if (isCorrectionInteractionTarget(event.target)) return;
+        cell.addEventListener('click', event => {
+            if (!isCorrectionClick(event)
+                || isCorrectionInteractionTarget(event.target)) return;
             event.preventDefault();
             event.stopPropagation();
             begin();

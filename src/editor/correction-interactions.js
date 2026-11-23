@@ -20,6 +20,11 @@ export function isCorrectionInteractionTarget(target) {
     return Boolean(target?.closest?.(CORRECTION_INTERACTION_SELECTOR));
 }
 
+export function isCorrectionClick(event) {
+    return event.button === 0 && event.altKey
+        && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+}
+
 export function isEditableTextCorrectionBlock(block) {
     return Boolean(block
         && ['heading', 'paragraph'].includes(block.type));

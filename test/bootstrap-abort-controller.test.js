@@ -1151,10 +1151,11 @@ test('uses the language menu without changing the default translation language',
     editorView.posAtCoords = () => 3;
     const content = shadow.querySelector('.cm-content');
     content.dispatchEvent(new mainWindow.document.defaultView.MouseEvent(
-        'dblclick', {
+        'click', {
             bubbles: true,
             cancelable: true,
             button: 0,
+            altKey: true,
         }
     ));
     assert.equal(content.getAttribute('contenteditable'), 'true');

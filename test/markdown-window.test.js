@@ -92,7 +92,12 @@ function createView(model = createModel(), zotero = {}, options = {}) {
         editorFactory: options.editorFactory ?? createTestInlineEditor,
         localization: options.localization,
         readerFont: options.readerFont,
+        readerLocalFonts: options.readerLocalFonts,
+        readerFontFamilies: options.readerFontFamilies,
+        onReaderLocalFontChange: options.onReaderLocalFontChange,
         readerFontSize: options.readerFontSize,
+        readerTheme: options.readerTheme,
+        onReaderThemeChange: options.onReaderThemeChange,
         readerLineHeight: options.readerLineHeight,
         readerWidth: options.readerWidth,
         readerAlignment: options.readerAlignment,
@@ -640,7 +645,7 @@ test('toggles block correction mode and restores all saved corrections', async (
     const correctionBanner = shadow.querySelector('.markdown-correction-banner');
     assert.match(
         correctionBanner.textContent,
-        /double-click text or a table cell/i
+        /alt\/option-click text or a table cell/i
     );
     const finish = correctionBanner.querySelector('#mktero-correction-finish');
     assert.equal(finish?.textContent, 'Finish correction');
@@ -4390,6 +4395,44 @@ test('shows reading progress only while the document scrolls', () => {
     }
 });
 
+test('chooses a reader theme immediately and can return to the system palette', () => {
+    const changes = [];
+    const { view, shadow, document } = createView(createModel({
+        status: 'ready',
+        markdown: '# Paper',
+    }), {}, {
+        readerTheme: 'catppuccin-latte',
+        onReaderThemeChange: value => changes.push(value),
+    });
+    try {
+        const toggle = shadow.querySelector('#mktero-typography-toggle');
+        const choices = shadow.querySelector('#mktero-reader-theme-group');
+        const dracula = choices.querySelector('[data-reader-theme-choice="dracula"]');
+        const system = choices.querySelector('[data-reader-theme-choice="system"]');
+        assert.equal(shadow.host.getAttribute('data-reader-color-scheme'), 'light');
+        toggle.click();
+        assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+        dracula.click();
+        assert.equal(shadow.host.getAttribute('data-reader-theme'), 'dracula');
+        assert.equal(shadow.host.getAttribute('data-reader-color-scheme'), 'dark');
+        assert.equal(dracula.getAttribute('aria-checked'), 'true');
+        const home = new document.defaultView.Event('keydown', {
+            bubbles: true, cancelable: true,
+        });
+        home.key = 'Home';
+        dracula.dispatchEvent(home);
+        assert.equal(system.getAttribute('aria-checked'), 'true');
+        assert.equal(shadow.host.hasAttribute('data-reader-color-scheme'), false);
+        assert.deepEqual(changes, ['dracula', 'system']);
+        view.setReaderTheme('gruvbox');
+        assert.equal(shadow.host.getAttribute('data-reader-theme'), 'gruvbox');
+        assert.deepEqual(changes, ['dracula', 'system']);
+    }
+    finally {
+        view.destroy();
+    }
+});
+
 test('adjusts the persisted reader font size from the typography popover', () => {
     const persistedSizes = [];
     const { view, shadow } = createView(createModel({
@@ -4703,6 +4746,112 @@ for (const translated of [false, true]) {
         }
     });
 }
+
+test('applies independent local fonts to original, translated and comparison views', () => {
+    const model = createModel({
+        status: 'ready',
+        progress: 100,
+        markdown: '# Paper',
+        sourceKind: 'markdown',
+        translationStatus: 'ready',
+        translationView: 'original',
+        translationTargetLanguage: 'zh-CN',
+        translatedMarkdown: '# 论文',
+        comparisonMarkdown: '# Paper\n\n# 论文',
+        onTranslateDocument: () => {},
+        onSetTranslationView: () => {},
+    });
+    const { view, shadow } = createView(model, {}, {
+        readerFont: 'georgia',
+        readerLocalFonts: { source: 'Aptos', translation: '微软雅黑' },
+    });
+    const trigger = shadow.querySelector('#mktero-reader-font-family');
+    const font = name => shadow.host.style.getPropertyValue(name);
+    try {
+        assert.equal(trigger.textContent.trim(), 'Aptos');
+        assert.equal(trigger.disabled, true);
+        assert.match(font('--reader-font'), /^"Aptos", Georgia/);
+        view.render({ ...model, translationView: 'translated' });
+        assert.equal(trigger.textContent.trim(), '微软雅黑');
+        assert.match(font('--reader-selected-translation-font'), /^"微软雅黑", /);
+        view.render({ ...model, translationView: 'compare' });
+        assert.match(font('--reader-font'), /^"Aptos", Georgia/);
+        assert.match(font('--reader-selected-translation-font'), /^"微软雅黑", /);
+        view.setReaderLocalFonts({ source: '', translation: '微软雅黑' });
+        assert.equal(trigger.textContent.trim(), 'Georgia');
+        assert.equal(trigger.disabled, false);
+        assert.match(font('--reader-selected-translation-font'), /^"微软雅黑", /);
+    }
+    finally {
+        view.destroy();
+    }
+});
+
+test('offers both installed font selectors in the reader typography panel', () => {
+    const changes = [];
+    const { view, shadow, document } = createView(createModel({
+        status: 'ready',
+        markdown: '# Paper',
+        sourceKind: 'markdown',
+        translationStatus: 'ready',
+        translationView: 'compare',
+        translationTargetLanguage: 'zh-CN',
+        translatedMarkdown: '# 论文',
+        comparisonMarkdown: '# Paper\n\n# 论文',
+    }), {}, {
+        readerFontFamilies: ['Aptos', 'Microsoft YaHei'],
+        readerLocalFonts: { source: 'Aptos', translation: '' },
+        onReaderLocalFontChange: (...change) => changes.push(change),
+    });
+    try {
+        const panel = shadow.querySelector('#mktero-typography-panel');
+        const source = panel.querySelector('#mktero-reader-source-font-select');
+        const translation = panel.querySelector('#mktero-reader-translation-font-select');
+        const code = panel.querySelector('#mktero-reader-code-font-select');
+        assert.equal(source.value, 'Aptos');
+        assert.equal(translation.value, '');
+        assert.equal(code.value, '');
+        assert.deepEqual([...source.options].map(option => option.value), [
+            '', 'Aptos', 'Microsoft YaHei',
+        ]);
+        assert.equal(translation.getAttribute('size'), '6');
+        translation.options[2].selected = true;
+        translation.dispatchEvent(new document.defaultView.Event('input'));
+        assert.match(
+            shadow.host.style.getPropertyValue('--reader-selected-translation-font'),
+            /^"Microsoft YaHei", /
+        );
+        translation.dispatchEvent(new document.defaultView.Event('change'));
+        assert.deepEqual(changes, [['translation', 'Microsoft YaHei']]);
+        assert.equal(source.value, 'Aptos');
+        assert.match(shadow.host.style.getPropertyValue('--reader-font'), /^"Aptos", /);
+        source.options[0].dispatchEvent(new document.defaultView.Event(
+            'click', { bubbles: true }
+        ));
+        assert.deepEqual(changes, [
+            ['translation', 'Microsoft YaHei'],
+            ['source', ''],
+        ]);
+        assert.doesNotMatch(
+            shadow.host.style.getPropertyValue('--reader-font'), /^"Aptos", /
+        );
+        view.setReaderLocalFonts({ source: '', translation: 'Microsoft YaHei' });
+        assert.equal(source.value, '');
+        assert.equal(translation.value, 'Microsoft YaHei');
+        code.options[1].selected = true;
+        code.dispatchEvent(new document.defaultView.Event('input'));
+        assert.deepEqual(changes.at(-1), ['code', 'Aptos']);
+        assert.equal(
+            shadow.host.style.getPropertyValue('--reader-code-font'),
+            '"Aptos", var(--reader-code-font-default)'
+        );
+        assert.equal(source.value, '');
+        assert.equal(translation.value, 'Microsoft YaHei');
+    }
+    finally {
+        view.destroy();
+    }
+});
 
 test('offers fonts for the current language only in translated mode', () => {
     const persistedFonts = [];
@@ -5250,6 +5399,10 @@ test('enhances code blocks in saved HTML snapshots', async () => {
         await new Promise(resolve => setImmediate(resolve));
         assert.equal(code.dataset.highlighted, 'true');
         assert.equal(code.textContent, 'const answer = 42;\n');
+        view.setReaderTheme('dracula');
+        assert.equal(block.querySelector('pre').dataset.theme, 'dark');
+        view.setReaderTheme('catppuccin-latte');
+        assert.equal(block.querySelector('pre').dataset.theme, 'light');
     }
     finally {
         view.destroy();

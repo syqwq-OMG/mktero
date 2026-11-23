@@ -453,7 +453,7 @@ test('imports a local MinerU cache through bootstrap and preserves its offline s
         const content = shadow.querySelector('.cm-content');
         const view = EditorView.findFromDOM(shadow.querySelector('.cm-editor'));
         view.posAtCoords = () => 2;
-        content.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true, cancelable: true, button: 0 }));
+        content.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0, altKey: true }));
         assert.equal(content.getAttribute('contenteditable'), 'true');
         view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: replacement } });
     };
